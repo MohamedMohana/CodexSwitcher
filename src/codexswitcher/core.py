@@ -119,7 +119,8 @@ def save_account(name: str, source: Path | None = None) -> Path:
     validate_account_name(name)
     cfg.ensure_dirs()
 
-    if source is None:
+    is_live_save = source is None
+    if is_live_save:
         _require_auth_file()
         source = cfg.AUTH_FILE
     elif not source.exists():
@@ -129,7 +130,7 @@ def save_account(name: str, source: Path | None = None) -> Path:
 
     dest = cfg.account_path(name)
     copy_auth_atomic(source, dest)
-    if source == cfg.AUTH_FILE:
+    if is_live_save:
         _set_current(name)
     return dest
 
