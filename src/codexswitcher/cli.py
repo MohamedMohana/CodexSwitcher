@@ -273,6 +273,92 @@ def list_cmd(
 
 
 @app.command()
+def doctor() -> None:
+    """Run diagnostic checks and report the health of the install."""
+    import stat
+
+    from codexswitcher.auth import read_auth
+
+    cfg.ensure_dirs()
+
+    ok = "[bold green]✓[/]"
+    warn = "[yellow]![/]"
+    fail = "[bold red]✗[/]"
+
+    rows: list[tuple[str, str, str]] = []
+
+    rows.append((ok, "codexswitcher", f"version {__version__}"))
+
+    codex_bin = shutil.which("codex")
+    if codex_bin:
+        rows.append((ok, "codex CLI", codex_bin))
+    else:
+        rows.append((fail, "codex CLI", "not found on PATH"))
+
+    if cfg.AUTH_FILE.exists():
+        perms = stat.S_IMODE(cfg.AUTH_FILE.stat().st_mode)
+        perm_mark = ok if perms == cfg.AUTH_FILE_PERMISSIONS else warn
+        rows.append(
+            (
+                perm_mark,
+                "auth.json",
+                f"{cfg.AUTH_FILE} (mode {perms:o})",
+            )
+        )
+        try:
+            read_auth(cfg.AUTH_FILE)
+            rows.append((ok, "auth.json parse", "valid JSON"))
+        except (OSError, ValueError) as e:
+            rows.append((fail, "auth.json parse", str(e)))
+    else:
+        rows.append((warn, "auth.json", f"missing ({cfg.AUTH_FILE})"))
+
+    accounts = list_accounts()
+    rows.append((ok, "saved accounts", f"{len(accounts)} profile(s)"))
+
+    bad_perms = []
+    for acc in accounts:
+        p = cfg.account_path(acc.name)
+        if p.exists():
+            mode = stat.S_IMODE(p.stat().st_mode)
+            if mode != cfg.AUTH_FILE_PERMISSIONS:
+                bad_perms.append(f"{acc.name} (mode {mode:o})")
+    if bad_perms:
+        rows.append(
+            (warn, "profile permissions", "loose: " + ", ".join(bad_perms))
+        )
+    else:
+        rows.append((ok, "profile permissions", "0600 on all profiles"))
+
+    matched_or_recorded = get_current()
+    if matched_or_recorded is None and accounts:
+        rows.append(
+            (warn, "current account", "live auth doesn't match any profile")
+        )
+    elif matched_or_recorded is None:
+        rows.append((warn, "current account", "no saved accounts"))
+    else:
+        label = (
+            "active"
+            if matched_or_recorded.is_active
+            else "recorded (live auth differs)"
+        )
+        rows.append((ok, "current account", f"{matched_or_recorded.name} — {label}"))
+
+    table = Table(show_header=True, header_style="bold", show_lines=False)
+    table.add_column("", width=2)
+    table.add_column("Check")
+    table.add_column("Detail", style="dim")
+    for mark, check, detail in rows:
+        table.add_row(mark, check, detail)
+    console.print(table)
+
+    has_failure = any(row[0] == fail for row in rows)
+    if has_failure:
+        raise typer.Exit(1)
+
+
+@app.command()
 def current() -> None:
     """Show the currently active Codex account."""
     info = get_current()
