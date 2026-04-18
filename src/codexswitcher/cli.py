@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -109,10 +110,13 @@ def login(
             )
 
 
-def _do_save(name: str) -> None:
+def _do_save(name: str, source: Path | None = None) -> None:
     try:
-        dest = save_account(name)
-        console.print(f"[bold green]✓[/] Saved current auth as [cyan]{name}[/]")
+        dest = save_account(name, source=source)
+        origin = "current auth" if source is None else str(source)
+        console.print(
+            f"[bold green]✓[/] Saved {origin} as [cyan]{name}[/]"
+        )
         console.print(f"  {dest}")
     except CodexSwitcherError as e:
         err_console.print(f"[bold red]Error:[/] {e}")
@@ -122,9 +126,17 @@ def _do_save(name: str) -> None:
 @app.command()
 def save(
     name: str = typer.Argument(..., help="Name for this account profile."),
+    from_path: Path = typer.Option(
+        None,
+        "--from",
+        help="Import auth from this file instead of the live ~/.codex/auth.json.",
+        exists=False,
+        dir_okay=False,
+        resolve_path=True,
+    ),
 ) -> None:
     """Save the current Codex auth as a named account."""
-    _do_save(name)
+    _do_save(name, source=from_path)
 
 
 @app.command()

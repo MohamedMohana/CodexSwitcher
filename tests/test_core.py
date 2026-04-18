@@ -417,6 +417,32 @@ class TestSave:
         assert read_auth(account_path("personal")) == {"account": "A"}
         assert read_auth(account_path("business")) == {"account": "B"}
 
+    def test_save_from_path(self, tmp_env: dict, tmp_path: Path) -> None:
+        external = tmp_path / "external.auth.json"
+        external.write_text(json.dumps({"imported": True}), encoding="utf-8")
+
+        dest = save_account("imported", source=external)
+        assert read_auth(dest) == {"imported": True}
+
+    def test_save_from_path_does_not_touch_state(
+        self, tmp_env: dict, tmp_path: Path
+    ) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("live")
+        assert tmp_env["state"].read_text().strip() == "live"
+
+        external = tmp_path / "external.auth.json"
+        external.write_text(json.dumps({"imported": True}), encoding="utf-8")
+        save_account("imported", source=external)
+
+        # Importing from a file should NOT change which account is active.
+        assert tmp_env["state"].read_text().strip() == "live"
+
+    def test_save_from_missing_path(self, tmp_env: dict, tmp_path: Path) -> None:
+        missing = tmp_path / "nope.auth.json"
+        with pytest.raises(AuthFileNotFoundError):
+            save_account("imported", source=missing)
+
 
 # ============================================================
 # Core — switch

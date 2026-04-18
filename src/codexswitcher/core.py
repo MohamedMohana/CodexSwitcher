@@ -115,14 +115,22 @@ class AccountInfo:
     summary: str | None
 
 
-def save_account(name: str) -> Path:
+def save_account(name: str, source: Path | None = None) -> Path:
     validate_account_name(name)
-    _require_auth_file()
     cfg.ensure_dirs()
 
+    if source is None:
+        _require_auth_file()
+        source = cfg.AUTH_FILE
+    elif not source.exists():
+        raise AuthFileNotFoundError(
+            f"Source auth file not found: {source}"
+        )
+
     dest = cfg.account_path(name)
-    copy_auth_atomic(cfg.AUTH_FILE, dest)
-    _set_current(name)
+    copy_auth_atomic(source, dest)
+    if source == cfg.AUTH_FILE:
+        _set_current(name)
     return dest
 
 
