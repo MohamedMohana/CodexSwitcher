@@ -219,17 +219,27 @@ If you previously used `CodexSwitch` (the older name), `codexswitcher` automatic
 ## Development
 
 ```bash
+# Clone the repo
+git clone https://github.com/MohamedMohana/CodexSwitcher.git
+cd CodexSwitcher
+
 # Install with dev dependencies
 uv sync --all-extras
 
+# Activate the virtual environment (optional — lets you run commands without 'uv run')
+# macOS / Linux
+source .venv/bin/activate
+# Windows
+.venv\Scripts\activate
+
 # Run tests
-uv run python -m pytest -v
+pytest -v
 
 # Lint
-uv run ruff check src/ tests/
+ruff check src/ tests/
 
 # Run locally without installing
-uv run codexswitcher --help
+codexswitcher --help
 ```
 
 ## License
