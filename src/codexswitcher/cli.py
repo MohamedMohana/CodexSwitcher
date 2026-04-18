@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
-import sys
 
 import typer
 from rich.console import Console
@@ -64,17 +64,15 @@ def login(
         pids = ", ".join(str(p) for p in killed)
         console.print(f"[dim]Killed stale login process(es): {pids}[/]")
 
-    try:
-        subprocess.run([sys.executable, "-m", "codex", "login"], check=False)
-    except FileNotFoundError:
-        try:
-            subprocess.run(["codex", "login"], check=False)
-        except FileNotFoundError:
-            err_console.print(
-                "[bold red]Error:[/] Could not find [cyan]codex[/] command. "
-                "Make sure Codex CLI is installed."
-            )
-            raise typer.Exit(1) from None
+    codex_bin = shutil.which("codex")
+    if not codex_bin:
+        err_console.print(
+            "[bold red]Error:[/] Could not find [cyan]codex[/] command. "
+            "Make sure Codex CLI is installed."
+        )
+        raise typer.Exit(1) from None
+
+    subprocess.run([codex_bin, "login"], check=False)
 
     if not cfg.AUTH_FILE.exists():
         return
