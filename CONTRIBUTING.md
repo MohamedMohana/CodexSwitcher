@@ -47,7 +47,14 @@ Both should be clean before you open a PR.
 
 ## Security
 
-If you find a security issue (e.g. an auth file being written with wrong permissions, a token leak through logs), please **do not** open a public issue. Email the maintainer instead.
+If you find a security issue (e.g. an auth file being written with wrong permissions, a token leak through logs), please **do not** open a public issue.
+
+Instead, report it privately via one of:
+
+- GitHub's private vulnerability reporting: <https://github.com/MohamedMohana/CodexSwitcher/security/advisories/new>
+- Email the maintainer: **mohammedommuhanna@gmail.com**
+
+See [`SECURITY.md`](SECURITY.md) for the full policy, including what's in scope and expected response times.
 
 ## License
 
