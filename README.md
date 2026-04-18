@@ -103,6 +103,14 @@ codexswitcher save business
 codexswitcher save client-project
 ```
 
+Import from another file (e.g. a backup or an export from another machine) with `--from`:
+
+```bash
+codexswitcher save laptop-backup --from ~/Downloads/auth.json
+```
+
+When using `--from`, the imported snapshot is saved but the currently-active account pointer is left alone.
+
 ### `codexswitcher use [name]`
 
 Switch to a saved account. Pass the name directly, or omit it for an interactive picker.
