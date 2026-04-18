@@ -82,7 +82,7 @@ def _get_recorded() -> str | None:
     try:
         text = cfg.STATE_FILE.read_text(encoding="utf-8").strip()
         return text or None
-    except (OSError, FileNotFoundError):
+    except OSError:
         return None
 
 
