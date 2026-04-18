@@ -129,7 +129,9 @@ def _do_switch(name: str) -> None:
     try:
         switch_account(name)
         console.print(f"[bold green]✓[/] Switched to [cyan]{name}[/]")
-        console.print("[dim]Restart Codex if it is already running.[/]")
+        console.print(
+            "[bold yellow]⚠ Restart Codex (CLI and/or app) to use the new account.[/]"
+        )
     except AccountAlreadyActiveError as e:
         console.print(f"[yellow]{e}[/]")
     except CodexSwitcherError as e:
