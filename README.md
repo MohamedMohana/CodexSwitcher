@@ -43,8 +43,8 @@ pip install uv
 
 ```bash
 # Clone and install as a global CLI tool
-git clone <your-repo-url> codexswitcher
-cd codexswitcher
+git clone https://github.com/MohamedMohana/CodexSwitcher.git
+cd CodexSwitcher
 uv tool install .
 ```
 
