@@ -180,14 +180,16 @@ def _interactive_switch() -> None:
     console.print(table)
     console.print()
 
-    current = get_current()
-    default_hint = current.name if current else None
+    default_choice = next(
+        (str(i) for i, a in enumerate(accounts, 1) if not a.is_active),
+        "1",
+    )
 
     choice = Prompt.ask(
         "[bold]Switch to[/]",
         choices=[str(i) for i in range(1, len(accounts) + 1)]
         + [a.name for a in accounts],
-        default=default_hint or "1",
+        default=default_choice,
         console=console,
     )
 
