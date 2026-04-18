@@ -36,6 +36,10 @@ class AccountAlreadyActiveError(CodexSwitcherError):
     pass
 
 
+class AccountAlreadyExistsError(CodexSwitcherError):
+    pass
+
+
 def kill_login_server() -> list[int]:
     if sys.platform == "win32" or not shutil.which("lsof"):
         return []
@@ -203,6 +207,41 @@ def get_current() -> AccountInfo | None:
         )
 
     return None
+
+
+def rename_account(old: str, new: str) -> Path:
+    validate_account_name(old)
+    validate_account_name(new)
+    cfg.ensure_dirs()
+
+    if old == new:
+        raise InvalidAccountNameError(
+            f"New name must differ from the current name '{old}'."
+        )
+
+    source = cfg.account_path(old)
+    if not source.exists():
+        raise AccountNotFoundError(
+            f"Unknown account '{old}'. Run 'codexswitcher list' to see saved accounts."
+        )
+
+    dest = cfg.account_path(new)
+    if dest.exists():
+        raise AccountAlreadyExistsError(
+            f"An account named '{new}' already exists. "
+            "Remove it first or choose a different name."
+        )
+
+    source.rename(dest)
+
+    old_backup = cfg.backup_path(old)
+    if old_backup.exists():
+        old_backup.rename(cfg.backup_path(new))
+
+    if _get_recorded() == old:
+        _set_current(new)
+
+    return dest
 
 
 def remove_account(name: str) -> Path:

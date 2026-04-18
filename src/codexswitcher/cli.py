@@ -18,6 +18,7 @@ from codexswitcher.core import (
     kill_login_server,
     list_accounts,
     remove_account,
+    rename_account,
     save_account,
     switch_account,
 )
@@ -261,6 +262,22 @@ def current() -> None:
 
     if info.summary:
         console.print(f"  {info.summary}")
+
+
+@app.command()
+def rename(
+    old: str = typer.Argument(..., help="Current account name."),
+    new: str = typer.Argument(..., help="New account name."),
+) -> None:
+    """Rename a saved Codex account."""
+    try:
+        rename_account(old, new)
+        console.print(
+            f"[bold green]✓[/] Renamed [cyan]{old}[/] → [cyan]{new}[/]"
+        )
+    except CodexSwitcherError as e:
+        err_console.print(f"[bold red]Error:[/] {e}")
+        raise typer.Exit(1) from None
 
 
 @app.command()
