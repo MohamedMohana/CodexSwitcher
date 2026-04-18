@@ -10,6 +10,7 @@ from rich.table import Table
 
 from codexswitcher import __version__
 from codexswitcher import config as cfg
+from codexswitcher.auth import file_hash
 from codexswitcher.core import (
     AccountAlreadyActiveError,
     CodexSwitcherError,
@@ -72,9 +73,21 @@ def login(
         )
         raise typer.Exit(1) from None
 
+    before_hash = file_hash(cfg.AUTH_FILE) if cfg.AUTH_FILE.exists() else None
+
     subprocess.run([codex_bin, "login"], check=False)
 
     if not cfg.AUTH_FILE.exists():
+        err_console.print(
+            "[yellow]Login did not complete — no auth file was created.[/]"
+        )
+        return
+
+    after_hash = file_hash(cfg.AUTH_FILE)
+    if before_hash == after_hash:
+        err_console.print(
+            "[yellow]Login did not change the current auth — nothing to save.[/]"
+        )
         return
 
     if name:
