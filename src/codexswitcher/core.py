@@ -3,8 +3,10 @@ from __future__ import annotations
 import contextlib
 import os
 import re
+import shutil
 import signal
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +37,9 @@ class AccountAlreadyActiveError(CodexSwitcherError):
 
 
 def kill_login_server() -> list[int]:
+    if sys.platform == "win32" or not shutil.which("lsof"):
+        return []
+
     killed: list[int] = []
     try:
         result = subprocess.run(
