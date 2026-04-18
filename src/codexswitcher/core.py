@@ -98,9 +98,7 @@ def _get_recorded() -> str | None:
 def _match_live() -> str | None:
     if not cfg.AUTH_FILE.exists():
         return None
-    for path in sorted(cfg.account_path("*").parent.glob("*.auth.json")):
-        if path.name.endswith("-backup.auth.json"):
-            continue
+    for path in sorted(cfg.ACCOUNTS_DIR.glob("*.auth.json")):
         name = path.name.removesuffix(".auth.json")
         if files_match(cfg.AUTH_FILE, path):
             return name
@@ -169,9 +167,7 @@ def list_accounts() -> list[AccountInfo]:
     recorded = _get_recorded()
 
     accounts: list[AccountInfo] = []
-    for path in sorted(cfg.account_path("*").parent.glob("*.auth.json")):
-        if path.name.endswith("-backup.auth.json"):
-            continue
+    for path in sorted(cfg.ACCOUNTS_DIR.glob("*.auth.json")):
         name = path.name.removesuffix(".auth.json")
         is_active = name == matched
         is_recorded_only = (

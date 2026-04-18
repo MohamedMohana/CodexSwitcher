@@ -607,20 +607,26 @@ class TestList:
         assert accounts[0].summary is not None
         assert "chatgpt" in accounts[0].summary
 
-    def test_ignores_backup_auth_json_in_glob(self, tmp_env: dict) -> None:
+    def test_backup_suffix_account_is_visible(self, tmp_env: dict) -> None:
+        """A user-chosen account name ending in '-backup' lives in
+        ACCOUNTS_DIR (not BACKUPS_DIR) and must not be hidden from listings."""
         _write_auth(tmp_env["auth"])
-        save_account("personal")
-        _write_auth(tmp_env["auth"], {"other": True})
-        save_account("work")
-
-        ensure_dirs()
-        (tmp_env["accounts"] / "personal-backup.auth.json").write_text("{}")
+        save_account("personal-backup")
 
         accounts = list_accounts()
         names = [a.name for a in accounts]
-        assert "personal" in names
-        assert "work" in names
-        assert "personal-backup" not in names
+        assert "personal-backup" in names
+
+    def test_backup_suffix_account_is_detected_as_current(
+        self, tmp_env: dict
+    ) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal-backup")
+
+        current = get_current()
+        assert current is not None
+        assert current.name == "personal-backup"
+        assert current.is_active is True
 
 
 # ============================================================
