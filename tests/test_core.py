@@ -31,6 +31,7 @@ from codexswitcher.core import (
     AuthFileNotFoundError,
     CodexSwitcherError,
     InvalidAccountNameError,
+    clone_account,
     get_current,
     list_accounts,
     remove_account,
@@ -730,6 +731,46 @@ class TestRemove:
     def test_invalid_name(self, tmp_env: dict) -> None:
         with pytest.raises(InvalidAccountNameError):
             remove_account("bad!name")
+
+
+# ============================================================
+# Core — clone
+# ============================================================
+
+
+class TestClone:
+    def test_creates_copy(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        clone_account("personal", "work")
+        assert account_path("personal").exists()
+        assert account_path("work").exists()
+        assert read_auth(account_path("personal")) == read_auth(account_path("work"))
+
+    def test_does_not_change_state(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        clone_account("personal", "work")
+        assert tmp_env["state"].read_text().strip() == "personal"
+
+    def test_unknown_source(self, tmp_env: dict) -> None:
+        ensure_dirs()
+        with pytest.raises(AccountNotFoundError):
+            clone_account("ghost", "copy")
+
+    def test_destination_exists(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"], {"a": 1})
+        save_account("personal")
+        _write_auth(tmp_env["auth"], {"a": 2})
+        save_account("work")
+        with pytest.raises(AccountAlreadyExistsError):
+            clone_account("personal", "work")
+
+    def test_same_name_rejected(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        with pytest.raises(InvalidAccountNameError):
+            clone_account("personal", "personal")
 
 
 # ============================================================

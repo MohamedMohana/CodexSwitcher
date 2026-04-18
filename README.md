@@ -159,6 +159,14 @@ codexswitcher current
   mode=chatgpt, id=9a86901f...
 ```
 
+### `codexswitcher clone <source> <new-name>`
+
+Duplicate a saved account under a new name. Useful when you want to keep one profile as a pristine backup before experimenting.
+
+```bash
+codexswitcher clone personal personal-backup
+```
+
 ### `codexswitcher rename <old> <new>`
 
 Rename a saved account. Also moves its backup snapshot and updates the recorded-current pointer if it was the active one.

@@ -217,6 +217,33 @@ def get_current() -> AccountInfo | None:
     return None
 
 
+def clone_account(source_name: str, new_name: str) -> Path:
+    validate_account_name(source_name)
+    validate_account_name(new_name)
+    cfg.ensure_dirs()
+
+    if source_name == new_name:
+        raise InvalidAccountNameError(
+            f"Cloned name must differ from the source '{source_name}'."
+        )
+
+    source = cfg.account_path(source_name)
+    if not source.exists():
+        raise AccountNotFoundError(
+            f"Unknown account '{source_name}'. "
+            "Run 'codexswitcher list' to see saved accounts."
+        )
+
+    dest = cfg.account_path(new_name)
+    if dest.exists():
+        raise AccountAlreadyExistsError(
+            f"An account named '{new_name}' already exists."
+        )
+
+    copy_auth_atomic(source, dest)
+    return dest
+
+
 def rename_account(old: str, new: str) -> Path:
     validate_account_name(old)
     validate_account_name(new)

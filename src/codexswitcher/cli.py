@@ -16,6 +16,7 @@ from codexswitcher.auth import file_hash
 from codexswitcher.core import (
     AccountAlreadyActiveError,
     CodexSwitcherError,
+    clone_account,
     get_current,
     kill_login_server,
     list_accounts,
@@ -293,7 +294,8 @@ def doctor() -> None:
     if codex_bin:
         rows.append((ok, "codex CLI", codex_bin))
     else:
-        rows.append((fail, "codex CLI", "not found on PATH"))
+        # Only `login` needs the codex binary; other commands work without it.
+        rows.append((warn, "codex CLI", "not found on PATH (only `login` needs it)"))
 
     if cfg.AUTH_FILE.exists():
         perms = stat.S_IMODE(cfg.AUTH_FILE.stat().st_mode)
@@ -381,6 +383,22 @@ def current() -> None:
 
     if info.summary:
         console.print(f"  {info.summary}")
+
+
+@app.command()
+def clone(
+    source: str = typer.Argument(..., help="Existing account to clone."),
+    new_name: str = typer.Argument(..., help="Name for the copy."),
+) -> None:
+    """Clone a saved account to a new name (same auth, different label)."""
+    try:
+        clone_account(source, new_name)
+        console.print(
+            f"[bold green]✓[/] Cloned [cyan]{source}[/] → [cyan]{new_name}[/]"
+        )
+    except CodexSwitcherError as e:
+        err_console.print(f"[bold red]Error:[/] {e}")
+        raise typer.Exit(1) from None
 
 
 @app.command()
