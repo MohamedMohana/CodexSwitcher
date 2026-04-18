@@ -924,6 +924,27 @@ class TestCLIList:
         result = runner.invoke(app, ["list"])
         assert result.exit_code == 0
         assert "~" in result.output
+
+    def test_json_empty(self, tmp_env: dict) -> None:
+        result = runner.invoke(app, ["list", "--json"])
+        assert result.exit_code == 0
+        assert json.loads(result.output) == []
+
+    def test_json_payload(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"], {"a": 1})
+        save_account("personal")
+        _write_auth(tmp_env["auth"], {"a": 2})
+        save_account("work")
+        switch_account("personal")
+
+        result = runner.invoke(app, ["list", "--json"])
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        by_name = {item["name"]: item for item in payload}
+        assert by_name["personal"]["is_active"] is True
+        assert by_name["work"]["is_active"] is False
+        assert "name" in by_name["personal"]
+        assert "summary" in by_name["personal"]
         assert "recorded" in result.output
 
 

@@ -172,6 +172,24 @@ codexswitcher remove old-account -y    # skip confirmation
 codexswitcher remove
 ```
 
+### `codexswitcher list --json`
+
+Emit the saved accounts as machine-readable JSON. Handy for scripts:
+
+```bash
+codexswitcher list --json | jq -r '.[] | select(.is_active) | .name'
+```
+
+### Shell completion
+
+Tab completion is available via Typer. Install for the current shell with:
+
+```bash
+codexswitcher --install-completion
+```
+
+Or print the script and install it yourself with `--show-completion`.
+
 ### `codexswitcher --version`
 
 Show the installed version.
