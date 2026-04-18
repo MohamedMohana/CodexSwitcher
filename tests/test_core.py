@@ -974,6 +974,23 @@ class TestCLIList:
         assert "recorded" in result.output
 
 
+class TestCLIDoctor:
+    def test_no_auth(self, tmp_env: dict) -> None:
+        result = runner.invoke(app, ["doctor"])
+        # No auth.json is a warning, not a failure — exits 0.
+        assert result.exit_code == 0
+        assert "codexswitcher" in result.output
+        assert "saved accounts" in result.output
+
+    def test_with_account(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        result = runner.invoke(app, ["doctor"])
+        assert result.exit_code == 0
+        assert "personal" in result.output
+        assert "1 profile" in result.output
+
+
 class TestCLICurrent:
     def test_no_accounts(self, tmp_env: dict) -> None:
         result = runner.invoke(app, ["current"])

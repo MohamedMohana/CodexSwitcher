@@ -180,6 +180,16 @@ codexswitcher remove old-account -y    # skip confirmation
 codexswitcher remove
 ```
 
+### `codexswitcher doctor`
+
+Run diagnostic checks and print a summary — useful when something looks off or before filing a bug report. Verifies the `codex` CLI is on `PATH`, `auth.json` parses, and that all saved profiles have `0600` permissions.
+
+```bash
+codexswitcher doctor
+```
+
+Exits non-zero if any check fails.
+
 ### `codexswitcher list --json`
 
 Emit the saved accounts as machine-readable JSON. Handy for scripts:
