@@ -26,6 +26,7 @@ from codexswitcher.config import (
 )
 from codexswitcher.core import (
     AccountAlreadyActiveError,
+    AccountAlreadyExistsError,
     AccountNotFoundError,
     AuthFileNotFoundError,
     CodexSwitcherError,
@@ -33,6 +34,7 @@ from codexswitcher.core import (
     get_current,
     list_accounts,
     remove_account,
+    rename_account,
     save_account,
     switch_account,
     validate_account_name,
@@ -702,6 +704,69 @@ class TestRemove:
     def test_invalid_name(self, tmp_env: dict) -> None:
         with pytest.raises(InvalidAccountNameError):
             remove_account("bad!name")
+
+
+# ============================================================
+# Core — rename
+# ============================================================
+
+
+class TestRename:
+    def test_renames_snapshot(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        rename_account("personal", "work")
+        assert not account_path("personal").exists()
+        assert account_path("work").exists()
+
+    def test_updates_state_file(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        rename_account("personal", "work")
+        assert tmp_env["state"].read_text().strip() == "work"
+
+    def test_moves_backup(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"], {"a": 1})
+        save_account("personal")
+        _write_auth(tmp_env["auth"], {"a": 2})
+        save_account("work")
+        switch_account("personal")
+        rename_account("work", "business")
+        assert (tmp_env["backups"] / "business-backup.auth.json").exists()
+        assert not (tmp_env["backups"] / "work-backup.auth.json").exists()
+
+    def test_unknown(self, tmp_env: dict) -> None:
+        ensure_dirs()
+        with pytest.raises(AccountNotFoundError):
+            rename_account("ghost", "new")
+
+    def test_destination_exists(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"], {"a": 1})
+        save_account("personal")
+        _write_auth(tmp_env["auth"], {"a": 2})
+        save_account("work")
+        with pytest.raises(AccountAlreadyExistsError):
+            rename_account("personal", "work")
+
+    def test_same_name_rejected(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        with pytest.raises(InvalidAccountNameError):
+            rename_account("personal", "personal")
+
+    def test_invalid_new_name(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"])
+        save_account("personal")
+        with pytest.raises(InvalidAccountNameError):
+            rename_account("personal", "bad!name")
+
+    def test_other_accounts_state_untouched(self, tmp_env: dict) -> None:
+        _write_auth(tmp_env["auth"], {"a": 1})
+        save_account("personal")
+        _write_auth(tmp_env["auth"], {"a": 2})
+        save_account("work")
+        rename_account("personal", "home")
+        assert tmp_env["state"].read_text().strip() == "work"
 
 
 # ============================================================

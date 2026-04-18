@@ -151,6 +151,14 @@ codexswitcher current
   mode=chatgpt, id=9a86901f...
 ```
 
+### `codexswitcher rename <old> <new>`
+
+Rename a saved account. Also moves its backup snapshot and updates the recorded-current pointer if it was the active one.
+
+```bash
+codexswitcher rename personal home
+```
+
 ### `codexswitcher remove [name]`
 
 Remove a saved account. Pass the name directly, or omit it for an interactive picker. Prompts for confirmation unless you pass `-y`.
