@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 
@@ -208,9 +209,29 @@ def _interactive_switch() -> None:
 
 
 @app.command("list")
-def list_cmd() -> None:
+def list_cmd(
+    as_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit machine-readable JSON instead of a table.",
+    ),
+) -> None:
     """List all saved Codex accounts."""
     accounts = list_accounts()
+
+    if as_json:
+        payload = [
+            {
+                "name": a.name,
+                "is_active": a.is_active,
+                "is_recorded_only": a.is_recorded_only,
+                "summary": a.summary,
+            }
+            for a in accounts
+        ]
+        console.print_json(json.dumps(payload))
+        return
+
     if not accounts:
         console.print("[dim]No saved Codex accounts.[/]")
         return
