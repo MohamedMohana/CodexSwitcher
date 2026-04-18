@@ -444,6 +444,20 @@ class TestSave:
         with pytest.raises(AuthFileNotFoundError):
             save_account("imported", source=missing)
 
+    def test_save_from_live_auth_path_does_not_update_state(
+        self, tmp_env: dict
+    ) -> None:
+        """Explicit --from should never retag .current, even when the path
+        happens to equal the live auth file."""
+        _write_auth(tmp_env["auth"])
+        save_account("live")
+        assert tmp_env["state"].read_text().strip() == "live"
+
+        # User explicitly passes the live auth path — should be treated as
+        # an import, not a live-save.
+        save_account("imported", source=tmp_env["auth"])
+        assert tmp_env["state"].read_text().strip() == "live"
+
 
 # ============================================================
 # Core — switch
