@@ -157,9 +157,25 @@ def _do_switch(name: str) -> None:
     try:
         switch_account(name)
         console.print(f"[bold green]✓[/] Switched to [cyan]{name}[/]")
-        console.print(
-            "[bold yellow]⚠ Restart Codex (CLI and/or app) to use the new account.[/]"
-        )
+
+        from codexswitcher.auth import check_token_expiry
+        from codexswitcher.config import account_path
+
+        expiry = check_token_expiry(account_path(name))
+        if expiry.expired:
+            console.print(
+                "[bold red]⚠ Token for this account has expired. "
+                "Run [cyan]codexswitcher login[/] to re-authenticate.[/]"
+            )
+        elif expiry.expiring_soon:
+            console.print(
+                "[bold yellow]⚠ Token for this account is expiring soon. "
+                "Consider running [cyan]codexswitcher login[/] to refresh.[/]"
+            )
+        else:
+            console.print(
+                "[bold yellow]⚠ Restart Codex (CLI and/or app) to use the new account.[/]"
+            )
     except AccountAlreadyActiveError as e:
         console.print(f"[yellow]{e}[/]")
     except CodexSwitcherError as e:
@@ -189,6 +205,10 @@ def _interactive_switch() -> None:
         )
         label = f"{marker} {acc.name}" if marker else acc.name
         summary = acc.summary or ""
+        if acc.token_expiry and acc.token_expiry.expired:
+            summary += " [bold red](expired)[/]"
+        elif acc.token_expiry and acc.token_expiry.expiring_soon:
+            summary += " [bold yellow](expiring soon)[/]"
         table.add_row(str(i), label, summary)
 
     console.print()
@@ -262,7 +282,13 @@ def list_cmd(
         else:
             status = ""
 
-        table.add_row(status, acc.name, acc.summary or "")
+        summary = acc.summary or ""
+        if acc.token_expiry and acc.token_expiry.expired:
+            summary += " [bold red](token expired)[/]"
+        elif acc.token_expiry and acc.token_expiry.expiring_soon:
+            summary += " [bold yellow](token expiring soon)[/]"
+
+        table.add_row(status, acc.name, summary)
 
     console.print(table)
 
@@ -317,6 +343,17 @@ def doctor() -> None:
 
     accounts = list_accounts()
     rows.append((ok, "saved accounts", f"{len(accounts)} profile(s)"))
+
+    expired_accounts = []
+    for acc in accounts:
+        if acc.token_expiry and acc.token_expiry.expired:
+            expired_accounts.append(acc.name)
+    if expired_accounts:
+        rows.append(
+            (fail, "token expiry", f"expired: {', '.join(expired_accounts)}")
+        )
+    else:
+        rows.append((ok, "token expiry", "all tokens valid"))
 
     bad_perms = []
     for acc in accounts:

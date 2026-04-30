@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import stat
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,7 +13,9 @@ from typer.testing import CliRunner
 
 from codexswitcher import __version__
 from codexswitcher.auth import (
+    TokenExpiry,
     auth_summary,
+    check_token_expiry,
     copy_auth_atomic,
     file_hash,
     files_match,
@@ -315,6 +319,119 @@ class TestAuthSummary:
         _write_auth(p, {"auth_mode": "chatgpt", "tokens": {"account_id": "ab"}})
         s = auth_summary(p)
         assert "id=ab..." in s
+
+
+def _make_jwt(claims: dict) -> str:
+    header = base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode()).decode().rstrip("=")
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    return f"{header}.{payload}.fake-signature"
+
+
+class TestCheckTokenExpiry:
+    def test_expired_token(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        exp = int(time.time()) - 3600
+        _write_auth(p, {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp, "iat": exp - 3600})},
+        })
+        result = check_token_expiry(p)
+        assert result.expired is True
+        assert result.expiring_soon is False
+        assert result.expires_at == exp
+
+    def test_valid_token(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        exp = int(time.time()) + 86400 * 7
+        _write_auth(p, {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp, "iat": exp - 3600})},
+        })
+        result = check_token_expiry(p)
+        assert result.expired is False
+        assert result.expiring_soon is False
+
+    def test_expiring_soon(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        exp = int(time.time()) + 1800
+        _write_auth(p, {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp, "iat": exp - 3600})},
+        })
+        result = check_token_expiry(p)
+        assert result.expired is False
+        assert result.expiring_soon is True
+
+    def test_no_id_token_uses_last_refresh(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        _write_auth(p, {
+            "auth_mode": "chatgpt",
+            "last_refresh": "2020-01-01T00:00:00Z",
+            "tokens": {},
+        })
+        result = check_token_expiry(p)
+        assert result.expired is True
+
+    def test_no_expiry_info(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        _write_auth(p, {"auth_mode": "chatgpt", "tokens": {}})
+        result = check_token_expiry(p)
+        assert result.expired is False
+        assert result.expires_at is None
+
+    def test_missing_file(self, tmp_path: Path) -> None:
+        result = check_token_expiry(tmp_path / "nope.json")
+        assert result.expired is False
+        assert result.expires_at is None
+
+    def test_invalid_json(self, tmp_path: Path) -> None:
+        p = tmp_path / "bad.json"
+        p.write_text("not json")
+        result = check_token_expiry(p)
+        assert result.expired is False
+        assert result.expires_at is None
+
+
+class TestTokenExpiryLabel:
+    def test_expired(self) -> None:
+        e = TokenExpiry(expired=True, expiring_soon=False, expires_at=1.0)
+        assert e.label == "expired"
+
+    def test_expiring_soon(self) -> None:
+        e = TokenExpiry(expired=False, expiring_soon=True, expires_at=1.0)
+        assert e.label == "expiring soon"
+
+    def test_valid(self) -> None:
+        e = TokenExpiry(expired=False, expiring_soon=False, expires_at=1.0)
+        assert e.label == "valid"
+
+
+class TestAuthSummaryWithExpiry:
+    def test_includes_expired_label(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        exp = int(time.time()) - 3600
+        _write_auth(p, {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp})},
+        })
+        s = auth_summary(p, include_expiry=True)
+        assert "expired" in s
+
+    def test_without_expiry(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        _write_auth(p, {"auth_mode": "chatgpt", "tokens": {}})
+        s = auth_summary(p, include_expiry=True)
+        assert "expired" not in s
+
+    def test_backward_compat_no_expiry_arg(self, tmp_path: Path) -> None:
+        p = tmp_path / "auth.json"
+        exp = int(time.time()) - 3600
+        _write_auth(p, {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp})},
+        })
+        s = auth_summary(p)
+        assert "expired" not in s
 
 
 # ============================================================
@@ -975,6 +1092,35 @@ class TestCLIUse:
         assert result.exit_code == 0
         assert read_auth(tmp_env["auth"]) == {"account": "B"}
 
+    def test_switch_warns_expired_token(self, tmp_env: dict) -> None:
+        exp = int(time.time()) - 3600
+        _write_auth(tmp_env["auth"], {
+            "account": "A",
+            "tokens": {"id_token": _make_jwt({"exp": exp})},
+        })
+        save_account("personal")
+        _write_auth(tmp_env["auth"], {"account": "B", "tokens": {}})
+        save_account("business")
+
+        result = runner.invoke(app, ["use", "personal"])
+        assert result.exit_code == 0
+        assert "expired" in result.output
+        assert "login" in result.output
+
+    def test_switch_warns_expiring_soon(self, tmp_env: dict) -> None:
+        exp = int(time.time()) + 1800
+        _write_auth(tmp_env["auth"], {
+            "account": "A",
+            "tokens": {"id_token": _make_jwt({"exp": exp})},
+        })
+        save_account("personal")
+        _write_auth(tmp_env["auth"], {"account": "B", "tokens": {}})
+        save_account("business")
+
+        result = runner.invoke(app, ["use", "personal"])
+        assert result.exit_code == 0
+        assert "expiring soon" in result.output
+
 
 class TestCLIList:
     def test_empty(self, tmp_env: dict) -> None:
@@ -991,6 +1137,30 @@ class TestCLIList:
         assert result.exit_code == 0
         assert "personal" in result.output
         assert "business" in result.output
+
+    def test_shows_expired_token_warning(self, tmp_env: dict) -> None:
+        exp = int(time.time()) - 3600
+        _write_auth(tmp_env["auth"], {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp})},
+        })
+        save_account("personal")
+
+        result = runner.invoke(app, ["list"])
+        assert result.exit_code == 0
+        assert "expired" in result.output
+
+    def test_shows_expiring_soon_warning(self, tmp_env: dict) -> None:
+        exp = int(time.time()) + 1800
+        _write_auth(tmp_env["auth"], {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp})},
+        })
+        save_account("personal")
+
+        result = runner.invoke(app, ["list"])
+        assert result.exit_code == 0
+        assert "expiring soon" in result.output
 
     def test_shows_active_marker(self, tmp_env: dict) -> None:
         _write_auth(tmp_env["auth"], {"a": 1})
@@ -1038,7 +1208,6 @@ class TestCLIList:
 class TestCLIDoctor:
     def test_no_auth(self, tmp_env: dict) -> None:
         result = runner.invoke(app, ["doctor"])
-        # No auth.json is a warning, not a failure — exits 0.
         assert result.exit_code == 0
         assert "codexswitcher" in result.output
         assert "saved accounts" in result.output
@@ -1050,6 +1219,18 @@ class TestCLIDoctor:
         assert result.exit_code == 0
         assert "personal" in result.output
         assert "1 profile" in result.output
+
+    def test_expired_token_shows_failure(self, tmp_env: dict) -> None:
+        exp = int(time.time()) - 3600
+        _write_auth(tmp_env["auth"], {
+            "auth_mode": "chatgpt",
+            "tokens": {"id_token": _make_jwt({"exp": exp})},
+        })
+        save_account("personal")
+        result = runner.invoke(app, ["doctor"])
+        assert result.exit_code == 1
+        assert "expired" in result.output
+        assert "personal" in result.output
 
 
 class TestCLICurrent:

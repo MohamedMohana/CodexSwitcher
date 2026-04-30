@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from codexswitcher import config as cfg
-from codexswitcher.auth import copy_auth_atomic, files_match
+from codexswitcher.auth import TokenExpiry, check_token_expiry, copy_auth_atomic, files_match
 
 CODEX_LOGIN_PORT = 1455
 
@@ -111,6 +111,7 @@ class AccountInfo:
     is_active: bool
     is_recorded_only: bool
     summary: str | None
+    token_expiry: TokenExpiry | None = None
 
 
 def save_account(name: str, source: Path | None = None) -> Path:
@@ -174,13 +175,15 @@ def list_accounts() -> list[AccountInfo]:
         is_recorded_only = (
             matched is None and name == recorded
         )
-        summary = auth_summary(path)
+        summary = auth_summary(path, include_expiry=True)
+        expiry = check_token_expiry(path)
         accounts.append(
             AccountInfo(
                 name=name,
                 is_active=is_active,
                 is_recorded_only=is_recorded_only,
                 summary=summary,
+                token_expiry=expiry,
             )
         )
     return accounts
@@ -199,7 +202,8 @@ def get_current() -> AccountInfo | None:
             name=matched,
             is_active=True,
             is_recorded_only=False,
-            summary=auth_summary(path) if path.exists() else None,
+            summary=auth_summary(path, include_expiry=True) if path.exists() else None,
+            token_expiry=check_token_expiry(path) if path.exists() else None,
         )
 
     if recorded:
@@ -208,7 +212,8 @@ def get_current() -> AccountInfo | None:
             name=recorded,
             is_active=False,
             is_recorded_only=True,
-            summary=auth_summary(path) if path.exists() else None,
+            summary=auth_summary(path, include_expiry=True) if path.exists() else None,
+            token_expiry=check_token_expiry(path) if path.exists() else None,
         )
 
     return None
